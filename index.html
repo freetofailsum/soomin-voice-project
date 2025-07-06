@@ -3,77 +3,122 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Record Voice</title>
+  <title>Voice Memo</title>
   <style>
-    body {
-      background-color: black;
-      color: white;
-      font-family: sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
+    * {
       margin: 0;
+      padding: 0;
+      font-family: sans-serif;
+      box-sizing: border-box;
+    }
+
+    body, html {
+      height: 100%;
+      background: black;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
       text-align: center;
     }
+
+    #bg-video {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: -1;
+    }
+
+    .container {
+      z-index: 2;
+    }
+
     button {
+      background: transparent;
+      border: 2px solid white;
+      color: white;
       padding: 10px 20px;
-      font-size: 1rem;
-      margin: 10px;
+      font-size: 16px;
       cursor: pointer;
-      background: white;
-      color: black;
-      border: none;
+      margin-top: 20px;
+    }
+
+    #status {
+      margin-top: 10px;
+      font-size: 14px;
     }
   </style>
 </head>
 <body>
-  <h1>Record your own voice</h1>
-  <p>You can say anything or the quotes on your memo</p>
-  <button id="start">Start Recording</button>
-  <button id="stop" disabled>Stop Recording</button>
+  <video id="bg-video" autoplay muted loop playsinline>
+    <source src="https://www.dropbox.com/scl/fi/7j4zx0zie6i1enz5tvfqi/all-i-have-is-a-voice-0707.mp4?rlkey=6v0e82ieg2c8r32gdlywlh0qn&st=ksi4osex&raw=1" type="video/mp4">
+  </video>
+
+  <div class="container">
+    <h1>Record your own voice.<br/>You can say anything or the quotes on your memo.</h1>
+    <button id="recordBtn">Start Recording</button>
+    <div id="status"></div>
+  </div>
 
   <script>
+    const recordBtn = document.getElementById("recordBtn");
+    const statusDiv = document.getElementById("status");
     let mediaRecorder;
-    let audioChunks = [];
+    let chunks = [];
 
-    document.getElementById('start').onclick = async () => {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorder = new MediaRecorder(stream);
-      mediaRecorder.start();
-      audioChunks = [];
+    recordBtn.addEventListener("click", async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder.start();
+        recordBtn.textContent = "Recording... Click to Stop";
 
-      mediaRecorder.addEventListener('dataavailable', event => {
-        audioChunks.push(event.data);
-      });
+        mediaRecorder.ondataavailable = (e) => {
+          chunks.push(e.data);
+        };
 
-      mediaRecorder.addEventListener('stop', async () => {
-        const audioBlob = new Blob(audioChunks, { type: 'voice/webm' });
-        const formData = new FormData();
-        formData.append('voice', audioBlob, 'voice.webm');
+        mediaRecorder.onstop = async () => {
+          const blob = new Blob(chunks, { type: "voice/webm" });
+          const formData = new FormData();
+          formData.append("voice", blob);
 
-        const res = await fetch('/upload', {
-          method: 'POST',
-          body: formData
-        });
+          statusDiv.textContent = "Uploading...";
 
-        if (res.ok) {
-          alert('✅ Upload success!');
-        } else {
-          alert('❌ Upload failed. Please try again.');
-        }
-      });
+          const res = await fetch("/upload", {
+            method: "POST",
+            body: formData,
+          });
 
-      document.getElementById('start').disabled = true;
-      document.getElementById('stop').disabled = false;
-    };
+          if (res.ok) {
+            statusDiv.textContent = "Upload successful!";
+          } else {
+            statusDiv.textContent = "Upload failed. Please try again.";
+          }
 
-    document.getElementById('stop').onclick = () => {
-      mediaRecorder.stop();
-      document.getElementById('start').disabled = false;
-      document.getElementById('stop').disabled = true;
-    };
+          chunks = [];
+          recordBtn.textContent = "Start Recording";
+        };
+
+        recordBtn.onclick = () => {
+          if (mediaRecorder.state === "recording") {
+            mediaRecorder.stop();
+          }
+        };
+
+        // Unmute background video on first user interaction
+        document.body.addEventListener('click', () => {
+          const video = document.getElementById('bg-video');
+          video.muted = false;
+          video.play();
+        }, { once: true });
+
+      } catch (err) {
+        console.error(err);
+        statusDiv.textContent = "Microphone access denied.";
+      }
+    });
   </script>
 </body>
 </html>
