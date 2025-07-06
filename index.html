@@ -24,15 +24,58 @@
       padding: 10px 20px;
       font-size: 16px;
       cursor: pointer;
+      margin-top: 20px;
     }
   </style>
 </head>
 <body>
   <h1>Record your own voice</h1>
   <p>You can say anything or the quotes on your memo</p>
-  <button onclick="alert('Recording not set up yet')">Start Recording</button>
+  <button id="recordBtn">Start Recording</button>
+  <script>
+    const recordBtn = document.getElementById("recordBtn");
+    let mediaRecorder;
+    let chunks = [];
+
+    recordBtn.addEventListener("click", async () => {
+      if (!mediaRecorder || mediaRecorder.state === "inactive") {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+
+        mediaRecorder.ondataavailable = (e) => {
+          chunks.push(e.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+          const blob = new Blob(chunks, { type: "audio/webm" });
+          chunks = [];
+          const formData = new FormData();
+          formData.append("audio", blob, `voice_${new Date().toISOString()}.webm`);
+
+          try {
+            const response = await fetch("/upload", {
+              method: "POST",
+              body: formData,
+            });
+
+            if (response.ok) {
+              alert("Upload successful!");
+            } else {
+              alert("Upload failed. Please try again.");
+            }
+          } catch (error) {
+            console.error("Upload error:", error);
+            alert("Upload error. Please check the console.");
+          }
+        };
+
+        mediaRecorder.start();
+        recordBtn.textContent = "Stop Recording";
+      } else if (mediaRecorder.state === "recording") {
+        mediaRecorder.stop();
+        recordBtn.textContent = "Start Recording";
+      }
+    });
+  </script>
 </body>
 </html>
-
-
-
