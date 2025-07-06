@@ -22,7 +22,7 @@ const dbx = new Dropbox({
   fetch: fetch
 });
 
-app.post("/upload", upload.single("file"), async (req, res) => {
+app.post("/upload", upload.single("voice"), async (req, res) => {
   try {
     const fileName = `voice_memos/voice_${new Date().toISOString().replace(/[:.]/g, "-")}.webm`;
 
